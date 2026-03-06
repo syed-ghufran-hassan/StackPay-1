@@ -43,6 +43,7 @@
     (match s stream
       (begin
         (asserts! (is-eq tx-sender (get employee stream)) (err u1))
+        (asserts! (get active stream) (err u6)) ;; Only active streams can withdraw
         (let (
           (blocks (- block-height (get last-withdraw-block stream)))
           (amount (* blocks (get rate-per-block stream)))
@@ -66,7 +67,7 @@
   )
 )
 
-;; Cancel a stream (optional for employer)
+;; Cancel a stream (employer only)
 (define-public (cancel-stream (id uint))
   (let ((s (map-get? streams { id: id })))
     (match s stream
@@ -82,6 +83,60 @@
         (ok true)
       )
       (err u4)
+    )
+  )
+)
+
+;; Pause a stream (employer only)
+(define-public (pause-stream (id uint))
+  (let ((s (map-get? streams { id: id })))
+    (match s stream
+      (begin
+        (asserts! (is-eq tx-sender (get employer stream)) (err u7))
+        ;; Mark stream as inactive without refunding
+        (map-set streams
+          { id: id }
+          (merge stream { active: false })
+        )
+        (ok true)
+      )
+      (err u8)
+    )
+  )
+)
+
+;; Resume a paused stream (employer only)
+(define-public (resume-stream (id uint))
+  (let ((s (map-get? streams { id: id })))
+    (match s stream
+      (begin
+        (asserts! (is-eq tx-sender (get employer stream)) (err u9))
+        ;; Reactivate stream and reset last-withdraw-block
+        (map-set streams
+          { id: id }
+          (merge stream { active: true, last-withdraw-block: block-height })
+        )
+        (ok true)
+      )
+      (err u10)
+    )
+  )
+)
+
+;; Update rate of a stream (employer only)
+(define-public (update-rate (id uint) (new-rate uint))
+  (let ((s (map-get? streams { id: id })))
+    (match s stream
+      (begin
+        (asserts! (is-eq tx-sender (get employer stream)) (err u11))
+        ;; Update rate
+        (map-set streams
+          { id: id }
+          (merge stream { rate-per-block: new-rate })
+        )
+        (ok true)
+      )
+      (err u12)
     )
   )
 )
